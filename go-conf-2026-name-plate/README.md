@@ -29,6 +29,11 @@ Go Conference 2026 の名札バッジ。
 
 ボタンはすべて `InputPullup`。`B` はコード上に定義があるが現行ハードには実装されていない。
 
+> **液晶 RESET の GPIO15 は TinyGo の USB enumeration 対策と衝突する。**
+> このため USB シリアルが使えず、`-serial none` でのビルドが必須になっている
+> (詳細は「シリアルが使えないことについて」)。基板を改版する機会があれば
+> RESET を GPIO15 以外へ移すと USB CDC を取り戻せる。
+
 ## ビルドと書き込み
 
 ```sh
