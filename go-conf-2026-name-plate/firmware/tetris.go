@@ -116,13 +116,13 @@ var (
 	tetCurY    int
 	tetNext    int
 
-	tetScore    int
-	tetLines    int
-	tetLevel    int
-	tetDropIv   int // 落下間隔 (フレーム数)
-	tetDropCnt  int
-	tetOver     bool
-	tetFrame    int
+	tetScore   int
+	tetLines   int
+	tetLevel   int
+	tetDropIv  int // 落下間隔 (フレーム数)
+	tetDropCnt int
+	tetOver    bool
+	tetFrame   int
 
 	tetFlashRows [4]int // 消去中のライン (演出用)、-1 で未使用
 	tetFlashT    int    // 消去演出の残りフレーム

@@ -31,7 +31,7 @@ const (
 	ivFormMinX  = 8
 	ivFormMaxX  = 240 - ivFormMinX - ivFieldW
 	ivFormInitY = 26
-	ivRowDrop   = 10 // 端に達したときに降りる量
+	ivRowDrop   = 10  // 端に達したときに降りる量
 	ivDangerY   = 176 // これ以上降りると自機のラインに近く危険 (LED の赤み計算用)
 	ivInvadeY   = 196 // 最下段の敵の下端がここまで来たらゲームオーバー
 
@@ -72,21 +72,21 @@ var (
 	ivMoveInterval   int // 何フレームに 1 回編隊が動くか
 	ivMoveCounter    int
 
-	ivPlayerX  int
-	ivMoveDir  int // -1: 左移動中, 0: 停止, +1: 右移動中
+	ivPlayerX int
+	ivMoveDir int // -1: 左移動中, 0: 停止, +1: 右移動中
 
 	ivPlayerBullets [ivMaxPlayerBullets]ivBulletT
 	ivEnemyBullets  [ivMaxEnemyBullets]ivBulletT
 	ivEnemyBulletVy = 3
 
-	ivScore     int
-	ivLives     int
-	ivWave      int
-	ivState     int
-	ivHitFlash  int // 被弾フラッシュの残りフレーム数
-	ivAliveCnt  int
-	ivAnnounce  int // ウェーブ開始演出の残りフレーム数
-	ivFrame     int
+	ivScore    int
+	ivLives    int
+	ivWave     int
+	ivState    int
+	ivHitFlash int // 被弾フラッシュの残りフレーム数
+	ivAliveCnt int
+	ivAnnounce int // ウェーブ開始演出の残りフレーム数
+	ivFrame    int
 )
 
 // 8x8 のオリジナル幾何学ドット絵 (商標キャラクターの模写ではない自作パターン)
