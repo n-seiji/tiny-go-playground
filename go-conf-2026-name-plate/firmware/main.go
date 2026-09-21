@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
 	"machine"
 	"time"
@@ -117,7 +116,6 @@ func run() error {
 	cnt := 0
 	screen := screenBadge
 	var btnHold [6]int // 押しっぱなしの継続ポーリング回数 (0 = 離している)
-	btnLabels := [6]string{"A", "B", "R", "U", "L", "D"}
 	// U/D はこの回数 (66.7ms x 6 ≈ 400ms) 以上の長押しでオートリピート
 	const btnRepeatDelay = 6
 	// ゲーム中に A をこの回数 (66.7ms x 30 = 2 秒) 押し続けるとメニューへ戻る
@@ -220,8 +218,6 @@ func run() error {
 							if err != nil {
 								return err
 							}
-						default:
-							fmt.Printf("btn%s pressed\n", btnLabels[i])
 						}
 
 					case screenMenu:
