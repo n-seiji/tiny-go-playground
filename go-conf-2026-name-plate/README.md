@@ -41,8 +41,18 @@ mise run build      # out/go-conf-2026-name-plate.uf2 が出る
 1. BOOT ボタンを押しながら USB 接続 → `RPI-RP2` ドライブに uf2 をコピー
 2. 同じく BOOTSEL 状態にしてから `mise run flash`
 
-起動しないときは `mise run monitor` でシリアルを見る。
-`main()` はエラーを 1 秒ごとに print し続けるので原因が分かる。
+### シリアルが使えないことについて
+
+`mise run build` / `mise run flash` は `-serial none` を付けている。TinyGo の
+RP2040-E5 enumeration 対策が D+ を強制するために GPIO15 を借りるが、この基板では
+GPIO15 が液晶の RESET。そのため USB CDC の enumeration が成立せず、USB バスリセット
+のたびに割り込みハンドラ内のタイムアウト無し busy wait を抜けられなくなり、
+画面も LED も固まる。
+
+結果として `mise run monitor` は繋がらず、`println` / `fmt.Print` の出力先も無い。
+シリアルで調べたいときは `-serial uart` でビルドして UART のピンから読むこと
+(`-serial usb` は上記の衝突で固まるため不可)。恒久対策は液晶 RESET を GPIO15 以外
+へ移すこと。
 
 ## 画面と操作
 
@@ -110,7 +120,20 @@ U/D のみ長押しで約 15Hz のオートリピートがかかる。
 | タイムテーブルの中身 | `firmware/timetable_data.go` の `sessions` |
 | 背景・gopher の絵 | `firmware/images.go` の `background565` / `gopher565` |
 
-`images.go` の 2 つの定数は RGB565 を Go の文字列リテラルに展開したもので、
-手書きはできない。変換ツールは本家にも含まれていないので別途用意する必要がある。
+### 画像アセットの作り方
+
+`firmware/images/*.rgb565` は 240x240 の RGB565 ビッグエンディアン生データ
+(115200 バイト固定)。240x240 の PNG を用意すれば ffmpeg 一発で作れる。
+
+```sh
+ffmpeg -y -i nametag.png -f rawvideo -pix_fmt rgb565be firmware/images/nametag.rgb565
+```
+
+元の PNG は `firmware/nametag.png` / `firmware/qrcode.png` に確認用として置いてある
+(ビルドには使わない)。サイズが 115200 バイトにならない場合は入力が 240x240 でない。
+
+`images.go` の `background565` / `gopher565` は RGB565 を Go の文字列リテラルに
+展開したもので、こちらは手書きできない。差し替えるには同様に raw を作ってから
+Go のリテラルへ変換する必要がある。
 
 日本語フォントは収録グリフに制限がある (`×` は化けるため `x` で代用されている)。
