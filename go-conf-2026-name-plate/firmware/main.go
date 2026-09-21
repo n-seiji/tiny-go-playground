@@ -27,13 +27,14 @@ type screenMode int
 
 const (
 	screenBadge screenMode = iota
-	screenTimetable
-	screenBreakout
-	screenDemo
+	screenMenu             // ゲーム選択メニュー
+	screenGame             // games[] のいずれかをプレイ中 (実体は curGame)
 	screenNametag
 	screenQR
-	screenCyclone
 )
+
+// curGame は screenGame のときに動かしているゲーム。
+var curGame *game
 
 func writeColors(s pio.StateMachine, ws *piolib.WS2812B, colors []uint32) {
 	ws.WriteRaw(colors)
@@ -119,7 +120,8 @@ func run() error {
 	btnLabels := [6]string{"A", "B", "R", "U", "L", "D"}
 	// U/D はこの回数 (66.7ms x 6 ≈ 400ms) 以上の長押しでオートリピート
 	const btnRepeatDelay = 6
-	ttIdle := 0 // タイムテーブル画面の無操作ティック数
+	// ゲーム中に A をこの回数 (66.7ms x 30 = 2 秒) 押し続けるとメニューへ戻る
+	const btnQuitHold = 30
 
 	// バッジ画面へ戻る
 	toBadge := func() error {
@@ -129,33 +131,26 @@ func run() error {
 		return drawImage(display)
 	}
 
+	// ゲーム選択メニューを開く
+	toMenu := func() error {
+		screen = screenMenu
+		curGame = nil
+		enterMenu()
+		return updateMenu(display)
+	}
+
 	for {
 		<-ticker
-
-		// タイムテーブル画面は無操作 1 分でバッジ画面へ戻る
-		if screen == screenTimetable {
-			ttIdle++
-			if ttIdle >= 60*60 {
-				err := toBadge()
-				if err != nil {
-					return err
-				}
-			}
-		}
 
 		if cnt%2 == 0 {
 			var err error
 			switch screen {
 			case screenBadge:
 				err = drawMarquee(display)
-			case screenTimetable:
-				err = updateTimetable(display)
-			case screenBreakout:
-				err = updateBreakout(display)
-			case screenDemo:
-				err = updateDemo(display)
-			case screenCyclone:
-				err = updateCyclone(display)
+			case screenMenu:
+				err = updateMenu(display)
+			case screenGame:
+				err = curGame.update(display)
 			}
 			if err != nil {
 				return err
@@ -165,16 +160,12 @@ func run() error {
 			switch screen {
 			case screenBadge:
 				rotate(true) // 2 色コメットの回転
-			case screenTimetable:
-				ledBreathe()
-			case screenBreakout:
-				ledRainbow()
-			case screenDemo:
-				ledTwinkle()
+			case screenMenu:
+				menuLeds()
+			case screenGame:
+				curGame.leds()
 			case screenNametag, screenQR:
 				ledBreathe()
-			case screenCyclone:
-				ledCyclone()
 			}
 			writeColors(s, ws, ledBuffer[:])
 
@@ -193,11 +184,21 @@ func run() error {
 				for i, b := range buttons {
 					if !b.Get() {
 						btnHold[i]++
-						ttIdle = 0
 					} else {
 						btnHold[i] = 0
 						continue
 					}
+					// ゲームごとに戻る操作がまちまちで詰まらないよう、
+					// プレイ中はどの画面からでも A の長押しでメニューへ抜けられる
+					if screen == screenGame && i == 0 && btnHold[i] == btnQuitHold {
+						btnHold[i] = 0
+						err := toMenu()
+						if err != nil {
+							return err
+						}
+						continue
+					}
+
 					// 押した瞬間に 1 回、U/D は長押しでオートリピート (約 15Hz)
 					fire := btnHold[i] == 1 ||
 						((i == 3 || i == 5) && btnHold[i] >= btnRepeatDelay)
@@ -208,48 +209,46 @@ func run() error {
 					switch screen {
 					case screenBadge:
 						switch i {
-						case 0: // A: タイムテーブル画面へ
-							screen = screenTimetable
-							enterTimetable()
-						case 1, 3: // U (B は現行ハードに無い): ブロック崩し画面へ
-							screen = screenBreakout
-							bkInit()
-						case 5: // D: 疑似 3D デモ画面へ
-							screen = screenDemo
-							demoInit()
+						case 0, 1: // A: ゲーム選択メニューへ
+							err := toMenu()
+							if err != nil {
+								return err
+							}
 						case 4: // L: 名札画面へ
 							screen = screenNametag
 							err := drawFullImage(display, nametagImg)
 							if err != nil {
 								return err
 							}
-						case 2: // R: サイクロンゲームへ
-							screen = screenCyclone
-							cycloneInit()
 						default:
 							fmt.Printf("btn%s pressed\n", btnLabels[i])
 						}
 
-					case screenBreakout:
-						if i == 0 || i == 1 || i == 3 { // A/U: バッジ画面へ
+					case screenMenu:
+						switch i {
+						case 0, 1: // A: 決定してゲーム開始
+							curGame = mnSelected()
+							curGame.init()
+							screen = screenGame
+							err := curGame.update(display)
+							if err != nil {
+								return err
+							}
+						case 3: // U: カーソル上
+							mnMove(-1)
+						case 5: // D: カーソル下
+							mnMove(+1)
+						case 4: // L: バッジ画面へ戻る
 							err := toBadge()
 							if err != nil {
 								return err
 							}
 						}
 
-					case screenDemo:
-						if i == 0 || i == 1 || i == 5 { // A/D: バッジ画面へ
-							err := toBadge()
-							if err != nil {
-								return err
-							}
-						}
-
-					case screenCyclone:
-						// A はゲーム操作。U/L (と B) でバッジ画面へ
-						if i == 1 || i == 3 || i == 4 {
-							err := toBadge()
+					case screenGame:
+						// 戻るかどうかはゲーム側が決める
+						if curGame.input(i) {
+							err := toMenu()
 							if err != nil {
 								return err
 							}
@@ -283,36 +282,6 @@ func run() error {
 							if err != nil {
 								return err
 							}
-						}
-
-					case screenTimetable:
-						switch i {
-						case 0: // A: 詳細 <-> リスト (戻るタイル上ではバッジ画面へ)
-							if ttOnBack() {
-								err := toBadge()
-								if err != nil {
-									return err
-								}
-							} else {
-								ttSelect()
-							}
-						case 1: // B: 詳細ならリストへ、リストならバッジ画面へ
-							if ttDetail {
-								ttSelect()
-							} else {
-								err := toBadge()
-								if err != nil {
-									return err
-								}
-							}
-						case 2: // R: 次のトラック
-							ttSwitchTrack(+1)
-						case 3: // U: カーソル上 / 詳細スクロール
-							ttUp()
-						case 4: // L: 前のトラック
-							ttSwitchTrack(-1)
-						case 5: // D: カーソル下 / 詳細スクロール
-							ttDown()
 						}
 					}
 				}
