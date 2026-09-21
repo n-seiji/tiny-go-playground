@@ -16,18 +16,30 @@ BUILD_DIR = "out"
 
 # --- go-conf-2026-name-plate (Waveshare RP2040 Zero) ---
 # デッキが増えたら同じ形でタスクを足す。
+# 重要: -serial none は必須。
+# TinyGo の RP2040-E5 enumeration 対策 (machine_rp2040_usb_fix_usb_device_enumeration.go)
+# は D+ を強制するために GPIO15 を借りるが、この基板では GPIO15 が液晶の RESET
+# (main.go の st7789.New 第 2 引数)。そのため USB CDC の enumeration が成立せず、
+# USB バスリセットのたびに割り込みハンドラ内の busy wait
+#   for ...LINE_STATE... == LS_SE0 {}   // タイムアウト無し
+# を抜けられなくなり、画面も LED も固まる。USB CDC を無効化すればこの経路ごと消える。
+# 代償として println / fmt.Print 系の出力先が無くなり、mise run monitor は使えない。
+
 [tasks.build]
 description = "go-conf-2026-name-plate の uf2 をビルドする"
-run = "tinygo build -o ./out/go-conf-2026-name-plate.uf2 --target waveshare-rp2040-zero --size short --stack-size 8kb ./go-conf-2026-name-plate/firmware/"
+run = "tinygo build -o ./out/go-conf-2026-name-plate.uf2 -serial none --target waveshare-rp2040-zero --size short --stack-size 8kb ./go-conf-2026-name-plate/firmware/"
 
 [tasks.flash]
 description = "go-conf-2026-name-plate を書き込む (BOOT ボタンを押しながら USB 接続しておくこと)"
-run = "tinygo flash --target waveshare-rp2040-zero --size short --stack-size 8kb ./go-conf-2026-name-plate/firmware/"
+run = "tinygo flash -serial none --target waveshare-rp2040-zero --size short --stack-size 8kb ./go-conf-2026-name-plate/firmware/"
 
+# 注意: 現状の build/flash は -serial none なのでこのタスクは繋がらない。
+# シリアルで調べたいときは -serial uart に変えて、UART のピンから読むこと
+# (-serial usb は GPIO15 の衝突でボードごと固まるので不可)。
 [tasks.monitor]
-description = "シリアルコンソールに繋いで println を見る"
+description = "シリアルコンソールに繋いで println を見る (-serial uart でビルドした場合のみ)"
 run = "tinygo monitor"
 
 [tasks.check]
 description = "全ファームウェアがビルドできるか確認する"
-run = "tinygo build -o /dev/null --target waveshare-rp2040-zero --stack-size 8kb ./go-conf-2026-name-plate/firmware/"
+run = "tinygo build -o /dev/null -serial none --target waveshare-rp2040-zero --stack-size 8kb ./go-conf-2026-name-plate/firmware/"
