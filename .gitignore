@@ -1,0 +1,13 @@
+*.bak
+*.zip
+*.ses
+*.dsn
+production
+jlcpcb
+fp-info-cache
+
+# KiCad のバックアップ
+*-backups/
+_autosave-*
+
+out/

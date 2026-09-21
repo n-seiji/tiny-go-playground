@@ -1,0 +1,33 @@
+# TinyGo 用の開発環境。
+#   mise install   -> go / tinygo を入れる
+#   mise run build -> uf2 を out/ に生成
+#   mise run flash -> ボードを BOOTSEL で繋いでから実行
+#
+# tinygo はリリース tarball に clang/LLVM を同梱しているので、
+# これ以外に用意するものはない (書き込みは uf2 のコピーで済む)。
+
+[tools]
+go     = "1.25"    # go.mod が go 1.25.0 を要求している
+tinygo = "0.42.0"
+
+[env]
+# out/ はビルド成果物置き場 (git 管理外)
+BUILD_DIR = "out"
+
+# --- go-conf-2026-name-plate (Waveshare RP2040 Zero) ---
+# デッキが増えたら同じ形でタスクを足す。
+[tasks.build]
+description = "go-conf-2026-name-plate の uf2 をビルドする"
+run = "tinygo build -o ./out/go-conf-2026-name-plate.uf2 --target waveshare-rp2040-zero --size short --stack-size 8kb ./go-conf-2026-name-plate/firmware/"
+
+[tasks.flash]
+description = "go-conf-2026-name-plate を書き込む (BOOT ボタンを押しながら USB 接続しておくこと)"
+run = "tinygo flash --target waveshare-rp2040-zero --size short --stack-size 8kb ./go-conf-2026-name-plate/firmware/"
+
+[tasks.monitor]
+description = "シリアルコンソールに繋いで println を見る"
+run = "tinygo monitor"
+
+[tasks.check]
+description = "全ファームウェアがビルドできるか確認する"
+run = "tinygo build -o /dev/null --target waveshare-rp2040-zero --stack-size 8kb ./go-conf-2026-name-plate/firmware/"
